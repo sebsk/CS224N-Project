@@ -34,7 +34,7 @@ Options:
 """
 
 from pytorch_pretrained_bert import BertAdam
-from bert_model import DefaultModel, CustomBertLSTMModel, CustomBertConvModel
+from bert_model import DefaultModel, NonlinearModel, CustomBertLSTMModel, CustomBertConvModel
 import logging
 import pickle
 import numpy as np
@@ -167,6 +167,14 @@ def train(args):
                 {'params': model.bert.bert.parameters()},
                 {'params': model.bert.classifier.parameters(), 'lr': float(args['--lr'])}
             ], lr=float(args['--lr-bert']), max_grad_norm=float(args['--clip-grad']))
+    elif args['MODEL'] == 'nonlinear':
+        model = NonlinearModel(args['BERT_CONFIG'], device, len(label_name), float(args['--dropout']))
+        optimizer = BertAdam([
+                {'params': model.bert.parameters()},
+                {'params': model.linear1.parameters(), 'lr': float(args['--lr'])},
+                {'params': model.linear2.parameters(), 'lr': float(args['--lr'])},
+                {'params': model.linear3.parameters(), 'lr': float(args['--lr'])}
+            ], lr=float(args['--lr-bert']), max_grad_norm=float(args['--clip-grad']))
     elif args['MODEL'] == 'lstm':
         model = CustomBertLSTMModel(args['BERT_CONFIG'], device, float(args['--dropout']), len(label_name),
                                     lstm_hidden_size=int(args['--hidden-size']))
@@ -183,6 +191,9 @@ def train(args):
                 {'params': model.conv.parameters(), 'lr': float(args['--lr'])},
                 {'params': model.hidden_to_softmax.parameters(), 'lr': float(args['--lr'])}
             ], lr=float(args['--lr-bert']), max_grad_norm=float(args['--clip-grad']))
+    else:
+        print('please input a valid model')
+        exit(0)
 
     model = model.to(device)
     print('Use device: %s' % device, file=sys.stderr)
@@ -318,6 +329,8 @@ def test(args):
 
     if args['MODEL'] == 'default':
         model = DefaultModel.load(prefix + '_model.bin', device)
+    elif args['MODEL'] == 'nonlinear':
+        model = NonlinearModel.load(prefix + '_model.bin', device)
     elif args['MODEL'] == 'lstm':
         model = CustomBertLSTMModel.load(prefix+'_model.bin', device)
     elif args['MODEL'] == 'cnn':
@@ -365,6 +378,7 @@ def test(args):
     loss = test_loss/df_test.shape[0]
 
     pickle.dump([label_name[i] for i in prediction], open(prefix+'_test_prediction', 'wb'))
+    pickle.dump(prob.data.cpu().numpy(), open(prefix + '_test_prediction_prob', 'wb'))
 
     accuracy = accuracy_score(df_test.InformationType_label.values, prediction)
     matthews = matthews_corrcoef(df_test.InformationType_label.values, prediction)
