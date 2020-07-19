@@ -154,7 +154,7 @@ def train(args):
     df_val = pd.read_csv(args['--dev'], index_col=0)
     train_label = dict(df_train.InformationType_label.value_counts())
     label_max = float(max(train_label.values()))
-    train_label_weight = torch.tensor([label_max/train_label[i] for i in range(len(train_label))], device=device)
+    train_label_weight = torch.tensor([label_max/train_label[i] for i in range(len(train_label))], device=device,dtype=torch.float)
     print('Done! time elapsed %.2f sec' % (time.time() - start_time), file=sys.stderr)
     print('-' * 80, file=sys.stderr)
 
